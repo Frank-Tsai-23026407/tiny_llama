@@ -6,10 +6,14 @@ from threading import Thread
 
 # Loading the tokenizer and model from Hugging Face's model hub.
 tokenizer = AutoTokenizer.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0")
-model = AutoModelForCausalLM.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0")
+model = AutoModelForCausalLM.from_pretrained(
+    "TinyLlama/TinyLlama-1.1B-Chat-v1.0" ,
+    torch_dtype=torch.bfloat16 # <--- This loads the weights in BF16
+)
 
 # using CUDA for an optimal experience
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print("current device: ", device)
 model = model.to(device)
 
 
@@ -25,13 +29,15 @@ class StopOnTokens(StoppingCriteria):
 
 # Function to generate model predictions.
 def predict(message, history):
+    print(history)
     history_transformer_format = history + [[message, ""]]
     stop = StopOnTokens()
 
     # Formatting the input for the model.
     messages = "</s>".join(["</s>".join(["\n<|user|>:" + item[0], "\n<|assistant|>:" + item[1]])
                         for item in history_transformer_format])
-    model_inputs = tokenizer([messages], return_tensors="pt").to(device)
+    print(messages)
+    model_inputs = tokenizer([messages], return_tensors="pt").to(device).to(model.dtype)
     streamer = TextIteratorStreamer(tokenizer, timeout=10., skip_prompt=True, skip_special_tokens=True)
     generate_kwargs = dict(
         model_inputs,
