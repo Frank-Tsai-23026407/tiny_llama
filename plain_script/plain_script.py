@@ -10,7 +10,7 @@ def __rotate_half(x):
     return torch.cat((-x2, x1), dim=-1)
 
 # Helper function for RoPE (Rotary Positional Embeddings)
-def __apply_rope(x, seq_len, head_dim, start_pos=0):
+def apply_rope(x, seq_len, head_dim, start_pos=0):
     # x shape: (B, H, S, D)
     input_dtype = x.dtype
     x = x.to(torch.float32)
@@ -65,8 +65,8 @@ def mqa_rope(i, wq, wk, wv, wo, num_heads, num_kv_heads, get_attn_scores=False):
     v = v_proj.view(batch_size, seq_len, num_kv_heads, head_dim).transpose(1, 2)
 
     # Apply RoPE
-    q = __apply_rope(q, seq_len, head_dim)
-    k = __apply_rope(k, seq_len, head_dim)
+    q = apply_rope(q, seq_len, head_dim)
+    k = apply_rope(k, seq_len, head_dim)
     
     # Repeat k and v heads if num_q_heads > num_kv_heads (Grouped Query Attention)
     k = k.repeat_interleave(num_q_heads // num_kv_heads, dim=1)
@@ -184,46 +184,57 @@ class transfomer_block_with_kv_cache:
         # Q projection
         batch_size, seq_len, model_dim = x.shape
         head_dim = model_dim // self.num_heads
-        q_proj = torch.matmul(x_norm, params['wq'].t())
-        q = q_proj.view(batch_size, seq_len, self.num_heads, head_dim).transpose(1, 2)
-        q = __apply_rope(q[:, :, -1, :], seq_len, head_dim, self.sequence_length)
         
+        
+        q_proj = torch.matmul(x_norm, params['wq'].t())
+
         # K/V projection
         k_proj = torch.matmul(x_norm, params['wk'].t())
         v_proj = torch.matmul(x_norm, params['wv'].t())
+
+        # Reshape and apply RoPE
+        q = q_proj.view(batch_size, seq_len, self.num_heads, head_dim).transpose(1, 2)
         k = k_proj.view(batch_size, seq_len, self.num_kv_heads, head_dim).transpose(1, 2)
         v = v_proj.view(batch_size, seq_len, self.num_kv_heads, head_dim).transpose(1, 2)
-        k = __apply_rope(k[:, :, -1, :], seq_len, head_dim, self.sequence_length)
-        
+
+        # Apply RoPE
+        q = apply_rope(q, seq_len, head_dim, start_pos=self.sequence_length)
+        k = apply_rope(k, seq_len, head_dim, start_pos=self.sequence_length)
+
         # Update KV cache
         if self.k_cache is None:
             self.k_cache = k
             self.v_cache = v
         else:
-            self.k_cache = torch.cat([self.k_cache, k], dim=2)
-            self.v_cache = torch.cat([self.v_cache, v], dim=2)
+            self.k_cache = torch.cat([self.k_cache, k], dim=-2)
+            self.v_cache = torch.cat([self.v_cache, v], dim=-2)
+
         
+
         # Repeat k and v heads if num_q_heads > num_kv_heads (Grouped Query Attention)
         k_expanded = self.k_cache.repeat_interleave(self.num_heads // self.num_kv_heads, dim=1)
         v_expanded = self.v_cache.repeat_interleave(self.num_heads // self.num_kv_heads, dim=1)
-        
+
         # Attention calculation
         attn_scores  = torch.matmul(q, k_expanded.transpose(-2, -1)) / math.sqrt(head_dim)
+        
+        # mask for prefilling
+        if self.sequence_length == 0 and seq_len > 1: # Only apply mask for prefilling if sequence length > 1
+            mask = torch.triu(torch.ones(seq_len, seq_len, device=x.device, dtype=torch.bool), diagonal=1).unsqueeze(0).unsqueeze(0)
+            attn_scores = attn_scores.masked_fill(mask, float('-inf'))
 
-        # Apply causal mask
-        total_seq_len = self.k_cache.shape[2]
-        mask = torch.triu(torch.ones(total_seq_len, total_seq_len, device=x.device, dtype=torch.bool), diagonal=1).unsqueeze(0).unsqueeze(0)
-        attn_scores = attn_scores.masked_fill(mask[:, :, -seq_len:, :], float('-inf'))
+        # update sequence length
+        self.sequence_length += seq_len
 
         attn_weights = torch.nn.functional.softmax(attn_scores, dim=-1)
         attn_output  = torch.matmul(attn_weights, v_expanded)
         attn_output = attn_output.transpose(1, 2).contiguous().view(batch_size, seq_len, model_dim)
         o = torch.matmul(attn_output, params['wo'].t())
         x = x + o
-        
+
         # LayerNorm 2
         x_norm = rmsnorm(x, params['norm2_weight'])
-        
+
         # Feed-Forward Network with SwiGLU activation
         ffn_output = ffn_SwiGLU(
             x_norm,
@@ -232,7 +243,7 @@ class transfomer_block_with_kv_cache:
         
         # Residual connection 2
         x = x + ffn_output
-        
+
         if self.get_attention_scores:
             return x, attn_scores
         else:
