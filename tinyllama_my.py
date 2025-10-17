@@ -1,5 +1,6 @@
 # from ...plain_script.plain_script import *
 from plain_script.plain_script import *
+import argparse
 
 class StopOnTokens(StoppingCriteria):
     def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
@@ -61,6 +62,12 @@ class TinyLlamaMyModel:
             return logits, x_list
         else:
             return logits
+    
+    def reset_kv_cache(self):
+        for block in self.attention_blocks:
+            block.k_cache = None
+            block.v_cache = None
+            block.sequence_length = 0
             
     def generate(self, input_text, max_new_tokens=100):
         input_ids = self.tokenizer([input_text], return_tensors="pt").input_ids.to(self.device)
@@ -103,10 +110,11 @@ class TinyLlamaMyModel:
                 break
 
         decoded_output = self.tokenizer.decode(generated_ids, skip_special_tokens=True)
-        print(f"Generated text:\n{decoded_output}")
+        
+        return torch.tensor([generated_ids])
     
 
-def main():
+def test():
     # Step 1: Load the tinyllama model & example input
     example_input = '\n<|user|>:hello</s>\n<|assistant|>:'
     tokenizer = AutoTokenizer.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0")
@@ -150,6 +158,42 @@ def main():
     # Using a small tolerance (1e-3 or 1e-4 is standard for fp32)
     are_close = torch.allclose(my_logits, ground_truth_logits, atol=1e-4) 
     print(f"\nAre the logits close? {are_close}")
-    
+
+def input_formatting(history, input_text):
+    history_transformer_format = history + [[input_text, ""]]
+    messages = "</s>".join(["</s>".join(["\n<|user|>:" + item[0], "\n<|assistant|>:" + item[1]])
+                        for item in history_transformer_format])
+    return messages
+
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        prog="tinyllama ground truth inference",
+        description="Run inference on TinyLlama model in the full precision mode.",
+    )
+    parser.add_argument(
+        "-i", "--input_text", type=str, help="Input text for the model.",
+        default='Who is the president of US now?',
+    )
+    args = parser.parse_args()
+
+    input_text = args.input_text
+    
+    device = 'cpu'
+    tokenizer = AutoTokenizer.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0")
+    model = AutoModelForCausalLM.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0", torch_dtype=torch.float32)
+    
+    my_model = TinyLlamaMyModel(
+        model_name="TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+        device=device,
+        stop_criteria=StopOnTokens(),
+        dtype=torch.float32
+    )
+    
+    outputs = my_model.generate(
+        input_formatting([], input_text),
+        max_new_tokens=1024
+    )
+    
+    generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    print("Input Text:\n", input_formatting([], input_text))
+    print("Generated Text:\n", generated_text)

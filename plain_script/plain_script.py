@@ -209,7 +209,8 @@ class transfomer_block_with_kv_cache:
             self.k_cache = torch.cat([self.k_cache, k], dim=-2)
             self.v_cache = torch.cat([self.v_cache, v], dim=-2)
 
-        
+        # update sequence length
+        self.sequence_length += seq_len
 
         # Repeat k and v heads if num_q_heads > num_kv_heads (Grouped Query Attention)
         k_expanded = self.k_cache.repeat_interleave(self.num_heads // self.num_kv_heads, dim=1)
@@ -219,12 +220,9 @@ class transfomer_block_with_kv_cache:
         attn_scores  = torch.matmul(q, k_expanded.transpose(-2, -1)) / math.sqrt(head_dim)
         
         # mask for prefilling
-        if self.sequence_length == 0 and seq_len > 1: # Only apply mask for prefilling if sequence length > 1
-            mask = torch.triu(torch.ones(seq_len, seq_len, device=x.device, dtype=torch.bool), diagonal=1).unsqueeze(0).unsqueeze(0)
+        if seq_len > 1: # Only apply mask for prefilling if sequence length > 1
+            mask = torch.triu(torch.ones(seq_len, self.sequence_length, device=x.device, dtype=torch.bool), diagonal=1).unsqueeze(0).unsqueeze(0)
             attn_scores = attn_scores.masked_fill(mask, float('-inf'))
-
-        # update sequence length
-        self.sequence_length += seq_len
 
         attn_weights = torch.nn.functional.softmax(attn_scores, dim=-1)
         attn_output  = torch.matmul(attn_weights, v_expanded)

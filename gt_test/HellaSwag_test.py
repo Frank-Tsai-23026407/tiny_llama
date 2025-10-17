@@ -1,8 +1,9 @@
-from plain_script import *
 from datasets import load_dataset
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import numpy as np
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 import re
 
@@ -95,7 +96,11 @@ def main():
                     attention_mask = tokenized_input.attention_mask
 
                     # Get model outputs
+                    if total_questions == 0:
+                        print(tokenized_input)
                     outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=input_ids)
+                    if total_questions == 0:
+                        print(outputs)
                     
                     # Calculate the negative log-likelihood (NLL)
                     # Shift logits and labels for language modeling
