@@ -19,7 +19,7 @@ from tinyllama_my import TinyLlamaMyModel
 from utils import *
 
 # set up configurations
-device = 'cpu'
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 dtype = torch.float32  # Using bfloat16 for model weights
 model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 

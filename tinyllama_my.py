@@ -1,14 +1,12 @@
 # from ...plain_script.plain_script import *
 from plain_script.plain_script import *
 import argparse
-
-class StopOnTokens(StoppingCriteria):
-    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
-        return input_ids[0][-1] == 2 # EOS token id for TinyLlama
+from block_quantization.block_quatization import block_floating_point_quantize
+from utils import *
 
 class TinyLlamaMyModel:
-    def __init__(self, model_name="TinyLlama/TinyLlama-1.1B-Chat-v1.0", device='cpu', stop_criteria=None, dtype=torch.float32):
-        self.device = device
+    def __init__(self, model_name="TinyLlama/TinyLlama_v1.1", device='cpu', stop_criteria=None, dtype=torch.float32, apply_bfp=False, bfp_block_size=16, bfp_mantissa_bits=4):
+        self.device = torch.device(device)
         self.dtype = dtype
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=dtype).to(device)
@@ -21,26 +19,43 @@ class TinyLlamaMyModel:
         self.attention_blocks = []
         for layer_idx in range(self.num_layers):
             layer = self.model.model.layers[layer_idx]
+            if apply_bfp:
+                layer.input_layernorm.weight.data = block_floating_point_quantize(layer.input_layernorm.weight.data, block_size=bfp_block_size, mantissa_bits=bfp_mantissa_bits)
+                layer.self_attn.q_proj.weight.data = block_floating_point_quantize(layer.self_attn.q_proj.weight.data, block_size=bfp_block_size, mantissa_bits=bfp_mantissa_bits)
+                layer.self_attn.k_proj.weight.data = block_floating_point_quantize(layer.self_attn.k_proj.weight.data, block_size=bfp_block_size, mantissa_bits=bfp_mantissa_bits)
+                layer.self_attn.v_proj.weight.data = block_floating_point_quantize(layer.self_attn.v_proj.weight.data, block_size=bfp_block_size, mantissa_bits=bfp_mantissa_bits)
+                layer.self_attn.o_proj.weight.data = block_floating_point_quantize(layer.self_attn.o_proj.weight.data, block_size=bfp_block_size, mantissa_bits=bfp_mantissa_bits)
+                layer.post_attention_layernorm.weight.data = block_floating_point_quantize(layer.post_attention_layernorm.weight.data, block_size=bfp_block_size, mantissa_bits=bfp_mantissa_bits)
+                layer.mlp.gate_proj.weight.data = block_floating_point_quantize(layer.mlp.gate_proj.weight.data, block_size=bfp_block_size, mantissa_bits=bfp_mantissa_bits)
+                layer.mlp.up_proj.weight.data = block_floating_point_quantize(layer.mlp.up_proj.weight.data, block_size=bfp_block_size, mantissa_bits=bfp_mantissa_bits)
+                layer.mlp.down_proj.weight.data = block_floating_point_quantize(layer.mlp.down_proj.weight.data, block_size=bfp_block_size, mantissa_bits=bfp_mantissa_bits)
             params = {
-                'norm1_weight': layer.input_layernorm.weight.to(dtype),
-                'wq': layer.self_attn.q_proj.weight.to(dtype),
-                'wk': layer.self_attn.k_proj.weight.to(dtype),
-                'wv': layer.self_attn.v_proj.weight.to(dtype),
-                'wo': layer.self_attn.o_proj.weight.to(dtype),
-                'norm2_weight': layer.post_attention_layernorm.weight.to(dtype),
-                'w_gate': layer.mlp.gate_proj.weight.to(dtype),
-                'w_up': layer.mlp.up_proj.weight.to(dtype),
-                'w_down': layer.mlp.down_proj.weight.to(dtype)
+                'norm1_weight': layer.input_layernorm.weight.to(device).to(dtype),
+                'wq': layer.self_attn.q_proj.weight.to(device).to(dtype),
+                'wk': layer.self_attn.k_proj.weight.to(device).to(dtype),
+                'wv': layer.self_attn.v_proj.weight.to(device).to(dtype),
+                'wo': layer.self_attn.o_proj.weight.to(device).to(dtype),
+                'norm2_weight': layer.post_attention_layernorm.weight.to(device).to(dtype),
+                'w_gate': layer.mlp.gate_proj.weight.to(device).to(dtype),
+                'w_up': layer.mlp.up_proj.weight.to(device).to(dtype),
+                'w_down': layer.mlp.down_proj.weight.to(device).to(dtype)
             }
-            self.attention_blocks.append(transfomer_block_with_kv_cache(params, self.num_heads, self.num_kv_heads))
-            self.stop_criteria = stop_criteria
+            self.attention_blocks.append(transfomer_block_with_kv_cache(params, self.num_heads, self.num_kv_heads, device=device))
+        self.stop_criteria = stop_criteria
+
+        if apply_bfp:
+            self.model.model.norm.weight.data = block_floating_point_quantize(self.model.model.norm.weight.data, block_size=bfp_block_size, mantissa_bits=bfp_mantissa_bits)
+            self.model.get_input_embeddings().weight.data = block_floating_point_quantize(self.model.get_input_embeddings().weight.data, block_size=bfp_block_size, mantissa_bits=bfp_mantissa_bits)
+            self.model.get_output_embeddings().weight.data = block_floating_point_quantize(self.model.get_output_embeddings().weight.data, block_size=bfp_block_size, mantissa_bits=bfp_mantissa_bits)
             
-    def single_step(self, input_ids, return_latents=False):
+    def single_step(self, inputs, return_latents=False):
+        # assert torch.device(inputs['input_ids'].device) == self.device, f"Input IDs must be on the same device as the model. Input device: {torch.device(inputs['input_ids'].device)}, Model device: {self.device}"
+        
         if return_latents:
             x_list = []
         
         # embedding
-        x = input_embedding(input_ids['input_ids'], self.model.get_input_embeddings().weight.to(self.dtype))
+        x = input_embedding(inputs['input_ids'], self.model.get_input_embeddings().weight.to(self.dtype))
         if return_latents:
             x_list.append(x)
         
@@ -158,12 +173,6 @@ def test():
     # Using a small tolerance (1e-3 or 1e-4 is standard for fp32)
     are_close = torch.allclose(my_logits, ground_truth_logits, atol=1e-4) 
     print(f"\nAre the logits close? {are_close}")
-
-def input_formatting(history, input_text):
-    history_transformer_format = history + [[input_text, ""]]
-    messages = "</s>".join(["</s>".join(["\n<|user|>:" + item[0], "\n<|assistant|>:" + item[1]])
-                        for item in history_transformer_format])
-    return messages
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

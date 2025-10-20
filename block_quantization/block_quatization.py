@@ -45,12 +45,10 @@ def block_floating_point_quantize(weight: torch.Tensor, block_size: int, mantiss
     # Note: torch.log2(0) is -inf, but since we used max_abs_values, only zero blocks are an issue, 
     # which the epsilon handles.
     E = torch.ceil(torch.log2(max_abs_values + epsilon))
-    print(E)
 
     # 3. Calculate the shared scaling factor (S) for each block
     # S = 2^E. This is used to normalize the block elements into the mantissa range [-1, 1).
     S = torch.pow(2.0, E)
-    print(S)
 
     # 4. Calculate the floating-point mantissa (M)
     M = blocks / S
@@ -60,7 +58,6 @@ def block_floating_point_quantize(weight: torch.Tensor, block_size: int, mantiss
     # Determine the number of quantization levels (Q_max) for the mantissa
     # Symmetric quantization: levels from -Q_max to Q_max
     Q_max = (1 << (mantissa_bits - 1)) - 1
-    print(Q_max)
     
     # Linearly map the floating-point mantissa M (range ~[-1, 1)) to integer levels
     # M_quant = round(M * Q_max)

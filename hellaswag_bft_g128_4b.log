@@ -1,0 +1,127 @@
+Full text for likelihood calculation:
+Roof shingle removal: A man is sitting on a roof. He is using wrap to wrap a pair of skis.
+
+Full text for likelihood calculation:
+Roof shingle removal: A man is sitting on a roof. He is ripping level tiles off.
+
+Full text for likelihood calculation:
+Roof shingle removal: A man is sitting on a roof. He is holding a rubik's cube.
+
+Full text for likelihood calculation:
+Roof shingle removal: A man is sitting on a roof. He starts pulling up roofing on a roof.
+
+
+Context:
+Roof shingle removal: A man is sitting on a roof. He
+A. ('is using wrap to wrap a pair of skis.',) (Log-likelihood: -4.25)
+B. ('is ripping level tiles off.',) (Log-likelihood: -5.01)
+C. ("is holding a rubik's cube.",) (Log-likelihood: -2.54)
+D. ('starts pulling up roofing on a roof.',) (Log-likelihood: -4.58)
+True Answer: D
+Predicted Answer: C
+------------------------------
+Full text for likelihood calculation:
+Clean and jerk: A lady walks to a barbell. She bends down and grabs the pole. The lady swings and lands in her arms.
+
+Full text for likelihood calculation:
+Clean and jerk: A lady walks to a barbell. She bends down and grabs the pole. The lady pulls the barbell forward.
+
+Full text for likelihood calculation:
+Clean and jerk: A lady walks to a barbell. She bends down and grabs the pole. The lady pulls a rope attached to the barbell.
+
+Full text for likelihood calculation:
+Clean and jerk: A lady walks to a barbell. She bends down and grabs the pole. The lady stands and lifts the weight over her head.
+
+
+Context:
+Clean and jerk: A lady walks to a barbell. She bends down and grabs the pole. The lady
+A. ('swings and lands in her arms.',) (Log-likelihood: -3.29)
+B. ('pulls the barbell forward.',) (Log-likelihood: -2.63)
+C. ('pulls a rope attached to the barbell.',) (Log-likelihood: -2.17)
+D. ('stands and lifts the weight over her head.',) (Log-likelihood: -2.25)
+True Answer: D
+Predicted Answer: C
+------------------------------
+Full text for likelihood calculation:
+Canoeing: Two women in a child are shown in a canoe while a man pulls the canoe while standing in the water, with other individuals visible in the background. The child and a different man are then shown paddling down a river in a boat while a woman talks.
+
+Full text for likelihood calculation:
+Canoeing: Two women in a child are shown in a canoe while a man pulls the canoe while standing in the water, with other individuals visible in the background. The child and a different man are driving the canoe, they go down the river flowing side to side.
+
+Full text for likelihood calculation:
+Canoeing: Two women in a child are shown in a canoe while a man pulls the canoe while standing in the water, with other individuals visible in the background. The child and a different man sit in a canoe while the man paddles.
+
+Full text for likelihood calculation:
+Canoeing: Two women in a child are shown in a canoe while a man pulls the canoe while standing in the water, with other individuals visible in the background. The child and a different man walking go down the rapids, while the man in his helicopter almost falls and goes out of canoehood.
+
+
+Context:
+Canoeing: Two women in a child are shown in a canoe while a man pulls the canoe while standing in the water, with other individuals visible in the background. The child and a different man
+A. ('are then shown paddling down a river in a boat while a woman talks.',) (Log-likelihood: -3.16)
+B. ('are driving the canoe, they go down the river flowing side to side.',) (Log-likelihood: -3.33)
+C. ('sit in a canoe while the man paddles.',) (Log-likelihood: -2.31)
+D. ('walking go down the rapids, while the man in his helicopter almost falls and goes out of canoehood.',) (Log-likelihood: -3.99)
+True Answer: C
+Predicted Answer: C
+------------------------------
+Full text for likelihood calculation:
+High jump: A boy is running down a track. The boy runs into a car.
+
+Full text for likelihood calculation:
+High jump: A boy is running down a track. The boy gets in a mat.
+
+Full text for likelihood calculation:
+High jump: A boy is running down a track. The boy lifts his body above the height of a pole.
+
+Full text for likelihood calculation:
+High jump: A boy is running down a track. The boy stands on his hands and springs.
+
+
+Context:
+High jump: A boy is running down a track. The boy
+A. ('runs into a car.',) (Log-likelihood: -3.82)
+B. ('gets in a mat.',) (Log-likelihood: -4.88)
+C. ('lifts his body above the height of a pole.',) (Log-likelihood: -3.50)
+D. ('stands on his hands and springs.',) (Log-likelihood: -3.85)
+True Answer: C
+Predicted Answer: C
+------------------------------
+Full text for likelihood calculation:
+High jump: The boy lifts his body above the height of a pole. The boy lands on his back on to a red mat. The boy turns his body around on the mat.
+
+Full text for likelihood calculation:
+High jump: The boy lifts his body above the height of a pole. The boy lands on his back on to a red mat. The boy gets up from the mat.
+
+Full text for likelihood calculation:
+High jump: The boy lifts his body above the height of a pole. The boy lands on his back on to a red mat. The boy continues to lift his body over the pole.
+
+Full text for likelihood calculation:
+High jump: The boy lifts his body above the height of a pole. The boy lands on his back on to a red mat. The boy wiggles out of the mat.
+
+
+Context:
+High jump: The boy lifts his body above the height of a pole. The boy lands on his back on to a red mat. The boy
+A. ('turns his body around on the mat.',) (Log-likelihood: -2.65)
+B. ('gets up from the mat.',) (Log-likelihood: -2.55)
+C. ('continues to lift his body over the pole.',) (Log-likelihood: -2.44)
+D. ('wiggles out of the mat.',) (Log-likelihood: -2.92)
+True Answer: B
+Predicted Answer: C
+------------------------------
+Full text for likelihood calculation:
+High jump: The boy lands on his back on to a red mat. The boy gets up from the mat. The boy starts doing spins.
+
+Full text for likelihood calculation:
+High jump: The boy lands on his back on to a red mat. The boy gets up from the mat. The boy celebrates by clapping and flexing both arms.
+
+Full text for likelihood calculation:
+High jump: The boy lands on his back on to a red mat. The boy gets up from the mat. The boy is dancing on the mat.
+
+Full text for likelihood calculation:
+High jump: The boy lands on his back on to a red mat. The boy gets up from the mat. The boy does jump jacks on his stick.
+
+
+--- HellaSwag Evaluation Results ---
+Total questions: 10042
+Correct predictions: 5327
+Accuracy: 0.5305

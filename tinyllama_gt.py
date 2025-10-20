@@ -5,18 +5,13 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from tqdm.auto import tqdm
 import numpy as np
 import datasets
+from utils import input_formatting
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model = AutoModelForCausalLM.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0").to(device)
 model.eval()
 tokenizer = AutoTokenizer.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0")
-
-def input_formatting(history, input_text):
-    history_transformer_format = history + [[input_text, ""]]
-    messages = "</s>".join(["</s>".join(["\n<|user|>:" + item[0], "\n<|assistant|>:" + item[1]])
-                        for item in history_transformer_format])
-    return messages
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

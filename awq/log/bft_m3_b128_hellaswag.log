@@ -1,0 +1,5 @@
+Applying BFP quantization with block_size=128 and mantissa_bits=3
+Using device: cuda
+Full text for likelihood calculation:
+Roof shingle removal: A man is sitting on a roof. He is using wrap to wrap a pair of skis.
+

@@ -167,11 +167,12 @@ def transformer_block(x, params, num_heads, num_kv_heads, get_attention_scores=F
         return x
     
 class transfomer_block_with_kv_cache:
-    def __init__(self, params, num_heads, num_kv_heads, get_attention_scores=False):
+    def __init__(self, params, num_heads, num_kv_heads, get_attention_scores=False, device='cpu'):
+        self.device = device # Assuming all params are on the same device
         self.num_heads = num_heads
         self.num_kv_heads = num_kv_heads
-        self.k_cache = None
-        self.v_cache = None
+        self.k_cache = torch.empty(0, device=self.device) # Initialize as empty tensor on the correct device
+        self.v_cache = torch.empty(0, device=self.device) # Initialize as empty tensor on the correct device
         self.sequence_length = 0
         self.params = params
         self.get_attention_scores = get_attention_scores
@@ -179,10 +180,10 @@ class transfomer_block_with_kv_cache:
         
     def forward(self, x, params):
         # LayerNorm 1
-        x_norm = rmsnorm(x, params['norm1_weight'])
+        x_norm = rmsnorm(x, params['norm1_weight'].to(self.device))
         
         # Q projection
-        batch_size, seq_len, model_dim = x.shape
+        batch_size, seq_len, model_dim = x.shape # x is already on the correct device
         head_dim = model_dim // self.num_heads
         
         
@@ -202,12 +203,12 @@ class transfomer_block_with_kv_cache:
         k = apply_rope(k, seq_len, head_dim, start_pos=self.sequence_length)
 
         # Update KV cache
-        if self.k_cache is None:
+        if self.sequence_length == 0: # Check if cache is empty based on sequence_length
             self.k_cache = k
             self.v_cache = v
         else:
-            self.k_cache = torch.cat([self.k_cache, k], dim=-2)
-            self.v_cache = torch.cat([self.v_cache, v], dim=-2)
+            self.k_cache = torch.cat([self.k_cache.to(self.device), k], dim=-2)
+            self.v_cache = torch.cat([self.v_cache.to(self.device), v], dim=-2)
 
         # update sequence length
         self.sequence_length += seq_len
@@ -221,18 +222,18 @@ class transfomer_block_with_kv_cache:
         
         # mask for prefilling
         if seq_len > 1: # Only apply mask for prefilling if sequence length > 1
-            mask = torch.triu(torch.ones(seq_len, self.sequence_length, device=x.device, dtype=torch.bool), diagonal=1).unsqueeze(0).unsqueeze(0)
+            mask = torch.triu(torch.ones(seq_len, self.sequence_length, device=self.device, dtype=torch.bool), diagonal=1).unsqueeze(0).unsqueeze(0)
             attn_scores = attn_scores.masked_fill(mask, float('-inf'))
 
         attn_weights = torch.nn.functional.softmax(attn_scores, dim=-1)
         attn_output  = torch.matmul(attn_weights, v_expanded)
         attn_output = attn_output.transpose(1, 2).contiguous().view(batch_size, seq_len, model_dim)
-        o = torch.matmul(attn_output, params['wo'].t())
+        o = torch.matmul(attn_output, params['wo'].to(self.device).t())
         x = x + o
 
         # LayerNorm 2
-        x_norm = rmsnorm(x, params['norm2_weight'])
-
+        x_norm = rmsnorm(x, params['norm2_weight'].to(self.device))
+        
         # Feed-Forward Network with SwiGLU activation
         ffn_output = ffn_SwiGLU(
             x_norm,
